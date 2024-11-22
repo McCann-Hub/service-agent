@@ -1,0 +1,52 @@
+{
+  "name": "service-agent",
+  "version": "0.0.0",
+  "exports": "./src/index.ts",
+  "tasks": {
+    "dev": "deno test --watch ./src/index.ts"
+  },
+  "license": "MIT",
+  "imports": {
+    "@/": "./src/",
+    "@utils/": "./src/utils/",
+    "@std/assert": "jsr:@std/assert@1"
+  },
+  "lint": {
+    "include": [
+      "./src/"
+    ],
+    "exclude": [
+      "./tests/**/*.spec.ts"
+    ],
+    "rules": {
+      "tags": [
+        "recommended"
+      ]
+    }
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": [
+      "./src/"
+    ],
+    "exclude": [
+      "./tests/**/*.spec.ts"
+    ]
+  },
+  "nodeModulesDir": "auto",
+  "exclude": [
+    "./dist/"
+  ],
+  "publish": {
+    "include": [
+      "./src/",
+      "README.md",
+      "deno.json"
+    ]
+  }
+}

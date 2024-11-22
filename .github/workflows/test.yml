@@ -1,0 +1,23 @@
+name: Use Shared Action to Test
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node_version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - uses: jabez007/create-node-template/.github/shared/node/test@master
+        with:
+          node_version: ${{ matrix.node_version }}

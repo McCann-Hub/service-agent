@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2020",
+    "outDir": "./dist/test",
+    "rootDir": "./",
+    "noEmit": false,
+    "types": [
+      "node",
+      "mocha"
+    ],
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ]
+    },
+    "esModuleInterop": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.spec.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
