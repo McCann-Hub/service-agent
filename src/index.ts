@@ -15,6 +15,8 @@ function defaultSpanIdGenerator(_request: IRequest): string | undefined {
   return suid.formattedUUID('$r4-$r2-$r2-$r2-$r6');
 }
 
+type AxiosFactory = (_request: IRequest) => AxiosInstance;
+
 function createLogger(logger?: ILogger): ILogger {
   const noop = () => {}; // No-op logger
   return {
@@ -44,7 +46,7 @@ export default function serviceAgent({
   spanIdHeader = 'X-svc2svc-Id',
   generator = defaultSpanIdGenerator,
   axiosConfig = {} as CreateAxiosDefaults,
-} = {}) {
+} = {}): AxiosFactory {
   return function <T = object>(_request: IRequest<T>): AxiosInstance {
     const logger = createLogger(_request.logger);
 
