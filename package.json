@@ -1,5 +1,5 @@
 {
-  "name": "service-agent",
+  "name": "@mccann-hub/service-agent",
   "version": "0.0.0",
   "main": "./dist/cjs/index.js",
   "scripts": {
@@ -17,13 +17,20 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/express": "^5.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.9.1",
+    "@types/sinon": "^17.0.3",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
+    "chai": "^5.1.2",
     "cross-env": "^7.0.3",
     "eslint": "^8.57.1",
+    "express": "^4.21.1",
     "mocha": "^10.8.2",
+    "node-mocks-http": "^1.16.1",
+    "sinon": "^19.0.2",
     "tsc-alias": "^1.8.10",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.19.2",
@@ -48,5 +55,9 @@
   "bugs": {
     "url": "https://github.com/McCann-Hub/service-agent/issues"
   },
-  "homepage": "https://github.com/McCann-Hub/service-agent#readme"
+  "homepage": "https://github.com/McCann-Hub/service-agent#readme",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "short-unique-id": "^5.2.0"
+  }
 }

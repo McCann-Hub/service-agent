@@ -1,5 +1,5 @@
 {
-  "name": "service-agent",
+  "name": "@mccann-hub/service-agent",
   "version": "0.0.0",
   "exports": "./src/index.ts",
   "tasks": {
@@ -8,20 +8,18 @@
   "license": "MIT",
   "imports": {
     "@/": "./src/",
+    "@models/ILogger": "./src/models/ILogger.ts",
+    "@models/IRequest": "./src/models/IRequest.ts",
     "@utils/": "./src/utils/",
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@1",
+    "short-unique-id": "npm:short-unique-id@^5.2.0",
+    "axios": "npm:axios@^1.7.7"
   },
   "lint": {
-    "include": [
-      "./src/"
-    ],
-    "exclude": [
-      "./tests/**/*.spec.ts"
-    ],
+    "include": ["./src/"],
+    "exclude": ["./tests/**/*.spec.ts"],
     "rules": {
-      "tags": [
-        "recommended"
-      ]
+      "tags": ["recommended"]
     }
   },
   "fmt": {
@@ -31,22 +29,12 @@
     "semiColons": true,
     "singleQuote": true,
     "proseWrap": "preserve",
-    "include": [
-      "./src/"
-    ],
-    "exclude": [
-      "./tests/**/*.spec.ts"
-    ]
+    "include": ["./src/"],
+    "exclude": ["./tests/**/*.spec.ts"]
   },
   "nodeModulesDir": "auto",
-  "exclude": [
-    "./dist/"
-  ],
+  "exclude": ["./dist/"],
   "publish": {
-    "include": [
-      "./src/",
-      "README.md",
-      "deno.json"
-    ]
+    "include": ["./src/", "README.md", "deno.json"]
   }
 }
