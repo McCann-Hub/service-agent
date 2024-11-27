@@ -39,7 +39,17 @@ function formatError(err: AxiosError) {
     ? err.toJSON()
     : { message: err.message };
 }
-
+/**
+ * Creates a custom Axios client configured for tracing and debugging in microservices.
+ *
+ * @param {Object} [config] - Configuration for the service agent.
+ * @param {string} [config.correlationIdHeader="X-Correlation-Id"] - Header name for correlation IDs.
+ * @param {string} [config.traceIdHeader="X-Request-Id"] - Header name for trace IDs.
+ * @param {string} [config.spanIdHeader="X-svc2svc-Id"] - Header name for span IDs.
+ * @param {function} [config.generator] - Function to generate span IDs. Defaults to a random hex-based ID generator.
+ * @param {Object} [config.axiosConfig] - Additional Axios configuration.
+ * @returns {function(IRequest): AxiosInstance} - A function that accepts an `IRequest` object and returns a custom Axios instance.
+ */
 export default function serviceAgent({
   correlationIdHeader = 'X-Correlation-Id',
   traceIdHeader = 'X-Request-Id',
