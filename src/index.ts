@@ -83,7 +83,8 @@ export default function serviceAgent({
       },
       (err) => {
         logger.error(`Request error: ${err.message}`, formatError(err));
-        return Promise.reject(err);
+        //return Promise.reject(err);
+        throw err;
       },
     );
 
@@ -107,7 +108,8 @@ export default function serviceAgent({
       },
       (err) => {
         logger.error(`Response error: ${err.message}`, formatError(err));
-        return Promise.reject(err);
+        //return Promise.reject(err);
+        throw err;
       },
     );
 

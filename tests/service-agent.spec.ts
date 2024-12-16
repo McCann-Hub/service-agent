@@ -3,7 +3,7 @@ import sinon from "sinon";
 import serviceAgent from '../src';
 import { IRequest } from '../src/models/IRequest'
 import { Request } from "express";
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance, AxiosError } from 'axios'
 import { createRequest, MockRequest } from 'node-mocks-http'
 
 describe('axios serviceAgent Middleware', () => {
@@ -71,4 +71,20 @@ describe('axios serviceAgent Middleware', () => {
     await client.post('https://some-domain.com/api/some-endpoint');
     expect(generator.calledOnceWith(req)).to.be.true;
   });
+
+  it('propagates the correct error type from interceptors', async () => {
+  const client = serviceAgent()(req);
+
+  // Mock a network error in Axios
+  axios.post = async () => {
+    throw new AxiosError('Network Error', 'ERR_NETWORK');
+  };
+
+  try {
+    await client.post('https://some-domain.com/api/test');
+  } catch (err) {
+    expect(err).to.be.instanceOf(AxiosError);
+    expect(err.message).to.equal('Network Error');
+  }
+});
 }) 
