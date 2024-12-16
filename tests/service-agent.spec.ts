@@ -73,18 +73,37 @@ describe('axios serviceAgent Middleware', () => {
   });
 
   it('propagates the correct error type from interceptors', async () => {
-  const client = serviceAgent()(req);
+    const client = serviceAgent()(req);
 
-  // Mock a network error in Axios
-  axios.post = async () => {
-    throw new AxiosError('Network Error', 'ERR_NETWORK');
-  };
+    // Mock a network error in Axios
+    axios.post = async () => {
+      throw new AxiosError('Network Error', 'ERR_NETWORK');
+    };
 
-  try {
-    await client.post('https://some-domain.com/api/test');
-  } catch (err) {
-    expect(err).to.be.instanceOf(AxiosError);
-    expect((err as AxiosError).message).to.equal('Network Error');
-  }
-});
+    try {
+      await client.post('https://some-domain.com/api/test');
+    } catch (err) {
+      expect(err).to.be.instanceOf(AxiosError);
+      expect((err as AxiosError).message).to.equal('Network Error');
+    }
+  });
+
+  it('handles server-side errors gracefully', async () => {
+    const client = serviceAgent()(req);
+
+    // Mock a 500 error response
+    axios.post = async () => {
+      throw new AxiosError('Server Error', 'ERR_BAD_RESPONSE', {}, null, {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+    };
+
+    try {
+      await client.post('https://some-domain.com/api/test');
+    } catch (err) {
+      expect(err).to.be.instanceOf(AxiosError);
+      expect((err as AxiosError).response?.status).to.equal(500);
+    }
+  });
 }) 
