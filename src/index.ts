@@ -1,8 +1,11 @@
 import axios, {
   AxiosError,
   AxiosInstance,
+  AxiosRequestConfig,
   AxiosRequestHeaders,
+  AxiosResponse,
   CreateAxiosDefaults,
+  InternalAxiosRequestConfig,
 } from 'axios';
 import ShortUniqueId from 'short-unique-id';
 import { IRequest } from '@models/IRequest';
@@ -27,17 +30,36 @@ function createLogger(logger?: ILogger): ILogger {
   };
 }
 
-function formatError(err: AxiosError) {
-  return err.response
-    ? {
-      status: err.response.status,
-      statusText: err.response.statusText,
-      headers: err.response.headers,
-      data: err.response.data,
+function formatLoggerRequest(req: AxiosRequestConfig) {
+  return {
+    base_url: req.baseURL,
+    uri_path: req.url,
+    http_method: req.method,
+    authentication: req.auth,
+    headers: req.headers,
+    data: req.data,
+  };
+}
+
+function formatLoggerResponse(res: AxiosResponse) {
+  return {
+    status: res.status,
+    status_text: res.statusText,
+    headers: res.headers,
+    data: res.data,
+  };
+}
+
+function formatError(err: unknown) {
+  if (err instanceof AxiosError) {
+    if (err.response) {
+      return formatLoggerResponse(err.response);
+    } else if (err.request) {
+      return formatLoggerRequest(err.request);
     }
-    : err.toJSON
-    ? err.toJSON()
-    : { message: err.message };
+    return err.toJSON();
+  }
+  return err.toJSON ? err.toJSON() : { err };
 }
 /**
  * Creates a custom Axios client configured for tracing and debugging in microservices.
@@ -72,42 +94,53 @@ export default function serviceAgent({
     });
 
     client.interceptors.request.use(
-      (req) => {
+      (req: InternalAxiosRequestConfig) => {
         const spanId = generator(_request);
         if (spanId) req.headers[spanIdHeader] = spanId;
 
-        logger.info(`Sending request`, { spanId, url: req.url });
-        logger.debug('Request details', { axios: req });
+        logger.info(`Sending request`, {
+          spanId,
+          base_url: req.baseURL,
+          uri_path: req.url,
+        });
+        logger.debug('Request details', {
+          spanId,
+          axios: formatLoggerRequest(req),
+        });
 
         return req;
       },
-      (err) => {
-        logger.error(`Request error: ${err.message}`, formatError(err));
+      (err: unknown) => {
+        logger.error(
+          `Request error: ${(err as Error).message}`,
+          formatError(err),
+        );
         //return Promise.reject(err);
         throw err;
       },
     );
 
     client.interceptors.response.use(
-      (res) => {
+      (res: AxiosResponse) => {
         const spanId = res.headers[spanIdHeader] ||
           res.config.headers?.[spanIdHeader];
 
-        logger.info(`Received response`, { spanId, status: res.status });
+        logger.info(`Received response`, {
+          spanId,
+          status: res.status,
+        });
         logger.debug('Response details', {
-          axios: {
-            request: res.config,
-            status: res.status,
-            statusText: res.statusText,
-            headers: res.headers,
-            data: res.data,
-          },
+          spanId,
+          axios: formatLoggerResponse(res),
         });
 
         return res;
       },
-      (err) => {
-        logger.error(`Response error: ${err.message}`, formatError(err));
+      (err: unknown) => {
+        logger.error(
+          `Response error: ${(err as Error).message}`,
+          formatError(err),
+        );
         //return Promise.reject(err);
         throw err;
       },
