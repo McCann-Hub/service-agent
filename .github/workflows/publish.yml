@@ -19,6 +19,9 @@ jobs:
         uses: McCann-Hub/create-typescript-template/.github/shared/npm/publish@master
         with:
           node_version: 22.x
+          # The trusted publisher only allows staged publishes. Approve each
+          # release with 2FA on npmjs.com or with `npm stage approve`.
+          staged: true
 
   publish_to_ghpr:
     runs-on: ubuntu-latest
