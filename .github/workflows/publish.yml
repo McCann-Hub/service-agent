@@ -8,6 +8,9 @@ on:
 jobs:
   publish_to_npm:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # The OIDC ID token is used for npm trusted publishing.
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -16,8 +19,9 @@ jobs:
         uses: McCann-Hub/create-typescript-template/.github/shared/npm/publish@master
         with:
           node_version: 22.x
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # The trusted publisher only allows staged publishes. Approve each
+          # release with 2FA on npmjs.com or with `npm stage approve`.
+          staged: true
 
   publish_to_ghpr:
     runs-on: ubuntu-latest
