@@ -1,11 +1,12 @@
 import axios, {
-  AxiosError,
+  AxiosHeaders,
   AxiosInstance,
   AxiosRequestConfig,
   AxiosRequestHeaders,
   AxiosResponse,
   CreateAxiosDefaults,
   InternalAxiosRequestConfig,
+  isAxiosError,
 } from 'axios';
 import ShortUniqueId from 'short-unique-id';
 import { IRequest } from '@models/IRequest';
@@ -30,37 +31,85 @@ function createLogger(logger?: ILogger): ILogger {
   };
 }
 
-function formatLoggerRequest(req: AxiosRequestConfig) {
+/**
+ * Header names whose values are replaced with `***REDACTED***` in logs.
+ * Compared case-insensitively.
+ */
+export const DEFAULT_REDACT_HEADERS: readonly string[] = Object.freeze([
+  'authorization',
+  'proxy-authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+]);
+
+const REDACTED = '***REDACTED***';
+
+function formatHeaders(headers: unknown, redact: ReadonlySet<string>) {
+  if (!headers) return undefined;
+  const plain = AxiosHeaders.from(
+    headers as Parameters<typeof AxiosHeaders.from>[0],
+  ).toJSON();
+  return Object.fromEntries(
+    Object.entries(plain).map(([name, value]) => [
+      name,
+      redact.has(name.toLowerCase()) ? REDACTED : value,
+    ]),
+  );
+}
+
+function formatLoggerRequest(
+  req: AxiosRequestConfig,
+  redact: ReadonlySet<string>,
+) {
   return {
     base_url: req.baseURL,
     uri_path: req.url,
-    http_method: req.method,
-    authentication: req.auth,
-    headers: req.headers,
+    http_method: req.method?.toUpperCase(),
+    // Keep the username for debugging; the password never reaches the logger
+    authentication: req.auth
+      ? { username: req.auth.username, password: REDACTED }
+      : undefined,
+    headers: formatHeaders(req.headers, redact),
     data: req.data,
   };
 }
 
-function formatLoggerResponse(res: AxiosResponse) {
+function formatLoggerResponse(
+  res: AxiosResponse,
+  redact: ReadonlySet<string>,
+) {
   return {
     status: res.status,
     status_text: res.statusText,
-    headers: res.headers,
+    headers: formatHeaders(res.headers, redact),
     data: res.data,
   };
 }
 
-function formatError(err: unknown) {
-  if (err instanceof AxiosError) {
-    if (err.response) {
-      return formatLoggerResponse(err.response);
-    } else if (err.request) {
-      return formatLoggerRequest(err.request);
-    }
-    return err.toJSON();
-  }
-  return err.toJSON ? err.toJSON() : { err };
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
+
+function formatError(err: unknown, redact: ReadonlySet<string>) {
+  if (isAxiosError(err)) {
+    return {
+      message: err.message,
+      code: err.code,
+      // err.request is the raw ClientRequest/XMLHttpRequest; the config is
+      // what describes the request we sent
+      request: err.config ? formatLoggerRequest(err.config, redact) : undefined,
+      response: err.response
+        ? formatLoggerResponse(err.response, redact)
+        : undefined,
+    };
+  }
+  if (err instanceof Error) {
+    return { name: err.name, message: err.message, stack: err.stack };
+  }
+  return { error: String(err) };
+}
+
 /**
  * Creates a custom Axios client configured for tracing and debugging in microservices.
  *
@@ -70,6 +119,7 @@ function formatError(err: unknown) {
  * @param {string} [config.spanIdHeader="X-svc2svc-Id"] - Header name for span IDs.
  * @param {function} [config.generator] - Function to generate span IDs. Defaults to a random hex-based ID generator.
  * @param {Object} [config.axiosConfig] - Additional Axios configuration.
+ * @param {string[]} [config.redactHeaders=DEFAULT_REDACT_HEADERS] - Header names to redact from logged requests and responses. Passing a list replaces the defaults.
  * @returns {function(IRequest): AxiosInstance} - A function that accepts an `IRequest` object and returns a custom Axios instance.
  */
 export default function serviceAgent({
@@ -78,7 +128,12 @@ export default function serviceAgent({
   spanIdHeader = 'X-svc2svc-Id',
   generator = defaultSpanIdGenerator,
   axiosConfig = {} as CreateAxiosDefaults,
+  redactHeaders = DEFAULT_REDACT_HEADERS,
 } = {}): AxiosFactory {
+  const redact: ReadonlySet<string> = new Set(
+    redactHeaders.map((name) => name.toLowerCase()),
+  );
+
   return function <T = object>(_request: IRequest<T>): AxiosInstance {
     const logger = createLogger(_request.logger);
 
@@ -105,15 +160,15 @@ export default function serviceAgent({
         });
         logger.debug('Request details', {
           spanId,
-          axios: formatLoggerRequest(req),
+          axios: formatLoggerRequest(req, redact),
         });
 
         return req;
       },
       (err: unknown) => {
         logger.error(
-          `Request error: ${(err as Error).message}`,
-          formatError(err),
+          `Request error: ${errorMessage(err)}`,
+          formatError(err, redact),
         );
         //return Promise.reject(err);
         throw err;
@@ -131,16 +186,20 @@ export default function serviceAgent({
         });
         logger.debug('Response details', {
           spanId,
-          axios: formatLoggerResponse(res),
+          axios: formatLoggerResponse(res, redact),
         });
 
         return res;
       },
       (err: unknown) => {
-        logger.error(
-          `Response error: ${(err as Error).message}`,
-          formatError(err),
-        );
+        const spanId = isAxiosError(err)
+          ? err.config?.headers?.[spanIdHeader]
+          : undefined;
+
+        logger.error(`Response error: ${errorMessage(err)}`, {
+          spanId,
+          axios: formatError(err, redact),
+        });
         //return Promise.reject(err);
         throw err;
       },
