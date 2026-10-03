@@ -84,6 +84,7 @@ app.get("/api", (req, res) => {
   - **generator:** Function to generate span IDs.
   - **axiosConfig:** Custom Axios configuration.
   - **redactHeaders:** Header names to redact from logged requests and responses, compared case-insensitively. Defaults to `DEFAULT_REDACT_HEADERS`: `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, and `x-api-key`. Passing a list replaces the defaults, so spread `DEFAULT_REDACT_HEADERS` to add to it.
+  - **redactFields:** Field name fragments to redact from logged bodies and URL query strings. A field matches if its name contains a fragment, ignoring case, so `key` also matches `api_key` and `apiKey`. Defaults to `DEFAULT_REDACT_FIELDS`: `secret`, `password`, `token`, `key`, `authorization`, `auth`, and `cookie`, the same fragments json-logger redacts. Passing a list replaces the defaults, so spread `DEFAULT_REDACT_FIELDS` to add to it.
 
 Returns a function that accepts an IRequest object and returns an Axios instance.
 
@@ -92,5 +93,14 @@ Returns a function that accepts an IRequest object and returns an Axios instance
 If the IRequest has a `logger`, the client logs each request and response:
 
 - `info` gets the span ID, base URL, and path on the way out, and the span ID and status on the way back.
-- `debug` gets the method, URL, headers, and body of each request and response. Headers in `redactHeaders` show as `***REDACTED***`. For basic auth, only the username is logged.
+- `debug` gets the method, base URL, path, headers, and body of each request, and the status, status text, headers, and body of each response. For basic auth, only the username is logged.
 - `error` gets the error message and code, the request that failed, and the response if the server sent one.
+
+Before anything reaches the logger, the client replaces these values with `***REDACTED***`:
+
+- headers named in `redactHeaders`
+- body fields whose names match `redactFields`, in objects, arrays, JSON strings, and form-encoded strings
+- query values whose names match `redactFields`, such as `?token=...`
+- the password in a URL such as `https://user:password@host`
+
+Binary bodies such as Buffers and streams show as their type, for example `[Buffer]`.

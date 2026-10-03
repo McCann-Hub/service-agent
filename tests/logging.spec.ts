@@ -154,4 +154,88 @@ describe('serviceAgent logging', () => {
     expect(plain[0]).to.equal('Response error: plain string failure');
     expect(plain[1].axios).to.deep.equal({ error: 'plain string failure' });
   });
+
+  it('redacts sensitive body fields in request and response details', async () => {
+    const adapter: Adapter = async (config) => ({
+      data: { access_token: 'tok-123', user: { name: 'ada', api_key: 'k-9' }, items: [{ secret: 's' }] },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    });
+    const client = serviceAgent({ axiosConfig: { adapter } })(req);
+
+    await client.post('https://some-domain.com/api/login', { username: 'ada', password: 'hunter22' });
+
+    const sent = metadata(logger.debug, 'Request details').axios.data;
+    expect(sent).to.deep.equal({ username: 'ada', password: '***REDACTED***' });
+    const received = metadata(logger.debug, 'Response details').axios.data;
+    expect(received).to.deep.equal({
+      access_token: '***REDACTED***',
+      user: { name: 'ada', api_key: '***REDACTED***' },
+      items: [{ secret: '***REDACTED***' }],
+    });
+    expect(JSON.stringify(logger.debug.args)).to.not.match(/hunter22|tok-123|k-9/);
+  });
+
+  it('redacts serialized JSON and form bodies in error logs', async () => {
+    const adapter: Adapter = async (config) => {
+      // By the time the adapter runs, axios has serialized the body to a string
+      throw new AxiosError('Request failed with status code 400', 'ERR_BAD_REQUEST', config, null, {
+        data: 'token=resp-secret&reason=bad',
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {},
+        config,
+      });
+    };
+    const client = serviceAgent({ axiosConfig: { adapter } })(req);
+
+    await rejection(client.post('https://some-domain.com/api/login', { username: 'ada', password: 'hunter22' }));
+
+    const logged = metadata(logger.error, 'Response error').axios;
+    expect(logged.request.data).to.deep.equal({ username: 'ada', password: '***REDACTED***' });
+    expect(logged.response.data).to.equal('token=***REDACTED***&reason=bad');
+  });
+
+  it('redacts URL credentials and sensitive query values everywhere it logs the URL', async () => {
+    const adapter: Adapter = async (config) => {
+      throw new AxiosError('Network Error', 'ERR_NETWORK', config);
+    };
+    const client = serviceAgent({
+      axiosConfig: { adapter, baseURL: 'https://svc:p4ss@some-domain.com' },
+    })(req);
+
+    await rejection(client.get('/reset?token=abc123&page=2&apiKey=k-9'));
+
+    const sending = metadata(logger.info, 'Sending request');
+    const details = metadata(logger.debug, 'Request details').axios;
+    const failed = metadata(logger.error, 'Response error').axios.request;
+    for (const logged of [sending, details, failed]) {
+      expect(logged.base_url).to.equal('https://svc:***REDACTED***@some-domain.com');
+      expect(logged.uri_path).to.equal('/reset?token=***REDACTED***&page=2&apiKey=***REDACTED***');
+    }
+    expect(JSON.stringify([logger.info.args, logger.debug.args, logger.error.args])).to.not.match(/p4ss|abc123|k-9/);
+  });
+
+  it('accepts a custom redactFields list, matched case-insensitively', async () => {
+    const client = serviceAgent({
+      axiosConfig: { adapter: ok },
+      redactFields: ['SSN'],
+    })(req);
+
+    await client.post('https://some-domain.com/api/people?ssn=123', { customer_ssn: '123-45-6789', password: 'visible' });
+
+    const details = metadata(logger.debug, 'Request details').axios;
+    expect(details.data).to.deep.equal({ customer_ssn: '***REDACTED***', password: 'visible' });
+    expect(details.uri_path).to.equal('https://some-domain.com/api/people?ssn=***REDACTED***');
+  });
+
+  it('logs a placeholder for binary bodies', async () => {
+    const client = serviceAgent({ axiosConfig: { adapter: ok } })(req);
+
+    await client.post('https://some-domain.com/api/upload', Buffer.from('raw bytes'));
+
+    expect(metadata(logger.debug, 'Request details').axios.data).to.equal('[Buffer]');
+  });
 })
