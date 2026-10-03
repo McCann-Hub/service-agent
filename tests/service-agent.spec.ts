@@ -3,7 +3,7 @@ import sinon from "sinon";
 import serviceAgent from '../src';
 import { IRequest } from '../src/models/IRequest'
 import { Request } from "express";
-import axios, { AxiosError, AxiosInstance } from 'axios'
+import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { createRequest, MockRequest } from 'node-mocks-http'
 
 describe('axios serviceAgent Middleware', () => {
@@ -61,49 +61,51 @@ describe('axios serviceAgent Middleware', () => {
 
   it('uses the generator to create spanId', async () => {
     const generator = sinon.stub().returns('test-span-id');
-    const client = serviceAgent({ generator })(req);
-
-    axios.post = async (url, data, config) => {
-      expect(config?.headers?.['X-svc2svc-Id']).to.equal('test-span-id');
-      return { data: { message: 'ok' } };
+    let sentConfig: InternalAxiosRequestConfig | undefined;
+    const adapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      sentConfig = config;
+      return { data: { message: 'ok' }, status: 200, statusText: 'OK', headers: {}, config };
     };
+    const client = serviceAgent({ generator, axiosConfig: { adapter } })(req);
 
     await client.post('https://some-domain.com/api/some-endpoint');
+    expect(sentConfig?.headers['X-svc2svc-Id']).to.equal('test-span-id');
     expect(generator.calledOnceWith(req)).to.be.true;
   });
 
   it('propagates the correct error type from interceptors', async () => {
-    const client = serviceAgent()(req);
-
-    // Mock a network error in Axios
-    axios.post = async () => {
-      throw new AxiosError('Network Error', 'ERR_NETWORK');
+    // Mock a network error in the transport
+    const adapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      throw new AxiosError('Network Error', 'ERR_NETWORK', config);
     };
+    const client = serviceAgent({ axiosConfig: { adapter } })(req);
 
-    try {
-      await client.post('https://some-domain.com/api/test');
-    } catch (err) {
-      expect(err).to.be.instanceOf(AxiosError);
-      expect((err as AxiosError).message).to.equal('Network Error');
-    }
+    const err = await client.post('https://some-domain.com/api/test').then(
+      () => expect.fail('expected the request to reject'),
+      (e: unknown) => e,
+    );
+    expect(err).to.be.instanceOf(AxiosError);
+    expect((err as AxiosError).message).to.equal('Network Error');
   });
 
   it('handles server-side errors gracefully', async () => {
-    const client = serviceAgent()(req);
-
     // Mock a 500 error response
-    axios.post = async () => {
-      throw new AxiosError('Server Error', 'ERR_BAD_RESPONSE', {}, null, {
+    const adapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      throw new AxiosError('Server Error', 'ERR_BAD_RESPONSE', config, null, {
+        data: {},
         status: 500,
         statusText: 'Internal Server Error',
+        headers: {},
+        config,
       });
     };
+    const client = serviceAgent({ axiosConfig: { adapter } })(req);
 
-    try {
-      await client.post('https://some-domain.com/api/test');
-    } catch (err) {
-      expect(err).to.be.instanceOf(AxiosError);
-      expect((err as AxiosError).response?.status).to.equal(500);
-    }
+    const err = await client.post('https://some-domain.com/api/test').then(
+      () => expect.fail('expected the request to reject'),
+      (e: unknown) => e,
+    );
+    expect(err).to.be.instanceOf(AxiosError);
+    expect((err as AxiosError).response?.status).to.equal(500);
   });
 }) 
