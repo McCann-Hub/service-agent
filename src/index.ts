@@ -275,10 +275,14 @@ export default function serviceAgent({
         return req;
       },
       (err: unknown) => {
-        logger.error(
-          `Request error: ${errorMessage(err)}`,
-          formatError(err, redact),
-        );
+        const spanId = isAxiosError(err)
+          ? err.config?.headers?.[spanIdHeader]
+          : undefined;
+
+        logger.error(`Request error: ${errorMessage(err)}`, {
+          spanId,
+          axios: formatError(err, redact),
+        });
         //return Promise.reject(err);
         throw err;
       },

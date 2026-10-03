@@ -136,6 +136,27 @@ describe('serviceAgent logging', () => {
     expect(headers.Authorization).to.equal('Bearer visible');
   });
 
+  it('nests request-phase errors under axios like response errors', async () => {
+    const client = serviceAgent({ axiosConfig: { adapter: ok } })(req);
+    // Axios runs request interceptors in reverse order, so this one runs before
+    // service-agent's and its rejection reaches service-agent's error handler
+    client.interceptors.request.use((config) => {
+      config.headers['X-svc2svc-Id'] = 'span-1';
+      throw new AxiosError('bad config', 'ERR_BAD_OPTION', config);
+    });
+
+    await rejection(client.get('https://some-domain.com/api/thing', {
+      headers: { Authorization: 'Bearer secret-token' },
+    }));
+
+    const logged = metadata(logger.error, 'Request error: bad config');
+    expect(logged.spanId).to.equal('span-1');
+    expect(logged.axios.code).to.equal('ERR_BAD_OPTION');
+    expect(logged.axios.request.uri_path).to.equal('https://some-domain.com/api/thing');
+    expect(logged.axios.request.headers.Authorization).to.equal('***REDACTED***');
+    expect(logged).to.not.have.property('code');
+  });
+
   it('logs errors that are not AxiosErrors', async () => {
     const failures: unknown[] = [new TypeError('adapter blew up'), 'plain string failure'];
     for (const failure of failures) {
