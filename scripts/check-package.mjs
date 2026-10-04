@@ -44,13 +44,18 @@ const run = (command, args, cwd, capture = false) => execFileSync(command, args,
   encoding: capture ? 'utf8' : undefined,
   stdio: capture ? 'pipe' : 'inherit',
 });
+// On Windows npm is a .cmd launcher, which execFileSync can't start. npm run
+// sets npm_execpath to npm's own script, which node can run anywhere.
+const npm = (args, cwd) => (process.env.npm_execpath
+  ? run(process.execPath, [process.env.npm_execpath, ...args], cwd)
+  : run('npm', args, cwd));
 
 try {
   let tarballPath = process.argv[2] ? resolve(process.argv[2]) : null;
   if (!tarballPath) {
     const packDirectory = join(temporaryRoot, 'package');
     await mkdir(packDirectory);
-    run('npm', ['pack', '--pack-destination', packDirectory], projectRoot);
+    npm(['pack', '--pack-destination', packDirectory], projectRoot);
     const tarballs = (await readdir(packDirectory)).filter((file) => file.endsWith('.tgz'));
     if (tarballs.length !== 1) throw new Error(`Expected one tarball, found ${tarballs.length}.`);
     tarballPath = join(packDirectory, tarballs[0]);
@@ -59,7 +64,7 @@ try {
   const consumerRoot = join(temporaryRoot, 'consumer');
   await mkdir(consumerRoot);
   await writeFile(join(consumerRoot, 'package.json'), JSON.stringify({ private: true }, null, 2));
-  run('npm', [
+  npm([
     'install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarballPath,
     ...consumerTypes,
   ], consumerRoot);
