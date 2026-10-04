@@ -57,8 +57,10 @@ try {
   const consumerRoot = join(temporaryRoot, 'consumer');
   await mkdir(consumerRoot);
   await writeFile(join(consumerRoot, 'package.json'), JSON.stringify({ private: true }, null, 2));
+  // A Node consumer has @types/node, and dependencies' types (winston's) need it
   run('npm', [
     'install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarballPath,
+    '@types/node',
   ], consumerRoot);
 
   run(process.execPath, ['--input-type=commonjs', '--eval', requireCheck], consumerRoot);
@@ -71,12 +73,12 @@ try {
       compilerOptions: { target: 'ES2022', module, moduleResolution, strict: true, noEmit: true },
       files: [source],
     }, null, 2));
+    run(process.execPath, [tscPath, '-p', configPath], consumerRoot);
     const trace = run(process.execPath, [tscPath, '-p', configPath, '--traceResolution'], consumerRoot, true);
     const resolved = trace.match(new RegExp(`Module name '${name}' was successfully resolved to '([^']+)'`));
     if (!resolved?.[1].endsWith(`/${expected}`)) {
       throw new Error(`${config} resolved ${resolved?.[1] ?? 'nothing'}, expected ${expected}.`);
     }
-    run(process.execPath, [tscPath, '-p', configPath], consumerRoot);
   }
 
   console.log(`${name}: require, import, and types verified for node16, nodenext, and bundler`);
