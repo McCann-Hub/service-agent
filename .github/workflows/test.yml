@@ -21,3 +21,20 @@ jobs:
       - uses: jabez007/create-node-template/.github/shared/node/test@master
         with:
           node_version: ${{ matrix.node_version }}
+
+  check_package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - run: npm ci
+
+      # Packs the build and loads it with require() and import, and type-checks it
+      # under node16, nodenext, and bundler
+      - run: npm run check:package
