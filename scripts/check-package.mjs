@@ -44,10 +44,15 @@ const run = (command, args, cwd, capture = false) => execFileSync(command, args,
   encoding: capture ? 'utf8' : undefined,
   stdio: capture ? 'pipe' : 'inherit',
 });
-// On Windows npm is a .cmd launcher, which execFileSync can't start. npm run
-// sets npm_execpath to npm's own script, which node can run anywhere.
-const npm = (args, cwd) => (process.env.npm_execpath
-  ? run(process.execPath, [process.env.npm_execpath, ...args], cwd)
+// On Windows npm is a .cmd launcher, which execFileSync can't start, so run
+// npm's own script with node instead. npm run points npm_execpath at that
+// script, and a standard Windows install keeps it next to node. Under yarn,
+// npm_execpath is yarn's script, so only use it when it's npm's.
+const npmCli = /npm-cli\.c?js$/.test(process.env.npm_execpath ?? '')
+  ? process.env.npm_execpath
+  : join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const npm = (args, cwd) => (process.platform === 'win32'
+  ? run(process.execPath, [npmCli, ...args], cwd)
   : run('npm', args, cwd));
 
 try {
