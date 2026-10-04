@@ -1,9 +1,17 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    // The package root has no "type", so NodeNext would emit CommonJS here.
+    // ESNext emits import/export, and dist/esm/package.json marks it as ESM.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "outDir": "./dist/esm",
     "declarationDir": "./dist/esm",
     "target": "ES2020"
+  },
+  // Node's ESM loader needs file extensions on relative imports
+  "tsc-alias": {
+    "resolveFullPaths": true
   },
   "include": [
     "src/**/*"

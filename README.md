@@ -23,6 +23,12 @@ yarn add @mccann-hub/service-agent
 
 ## Usage
 
+The package ships ESM and CommonJS builds. From CommonJS, the function is the `default` export:
+
+```javascript
+const serviceAgent = require("@mccann-hub/service-agent").default;
+```
+
 ### Basic Setup
 
 ```typescript

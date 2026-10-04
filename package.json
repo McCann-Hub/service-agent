@@ -1,6 +1,6 @@
 {
   "name": "@mccann-hub/service-agent",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publishConfig": {
     "access": "public"
   },
@@ -8,12 +8,13 @@
   "scripts": {
     "test": "cross-env TSX_TSCONFIG_PATH='./tsconfig.test.json' mocha",
     "build:cjs": "tsc --project tsconfig.commonjs.json && tsc-alias -p tsconfig.commonjs.json",
-    "build:esm": "tsc --project tsconfig.esm.json && tsc-alias -p tsconfig.esm.json",
+    "build:esm": "tsc --project tsconfig.esm.json && tsc-alias -p tsconfig.esm.json && node -e \"require('fs').writeFileSync('dist/esm/package.json', JSON.stringify({ type: 'module' }))\"",
     "build": "npm run build:cjs && npm run build:esm",
     "prepublishOnly": "npm run build",
     "clean": "node -e \"require('fs').rmSync('./dist', { recursive: true, force: true })\"",
     "prebuild": "npm run clean",
-    "lint": "eslint . --ext .ts,.js --fix"
+    "lint": "eslint . --ext .ts,.js --fix",
+    "check:package": "npm run build && node scripts/check-package.mjs"
   },
   "keywords": [
     "axios",
