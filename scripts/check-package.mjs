@@ -29,6 +29,8 @@ import serviceAgent, { DEFAULT_REDACT_FIELDS } from '${name}';
 const client = serviceAgent({ redactFields: [...DEFAULT_REDACT_FIELDS, 'ssn'] })({});
 void client.get;
 `;
+// Types a TypeScript Node app already has
+const consumerTypes = ['@types/node'];
 // [config name, fixture file, module, moduleResolution, declaration tsc must pick]
 const typeChecks = [
   ['node16', 'node16.cts', 'Node16', 'Node16', 'dist/cjs/index.d.ts'],
@@ -57,10 +59,9 @@ try {
   const consumerRoot = join(temporaryRoot, 'consumer');
   await mkdir(consumerRoot);
   await writeFile(join(consumerRoot, 'package.json'), JSON.stringify({ private: true }, null, 2));
-  // A Node consumer has @types/node, and dependencies' types (winston's) need it
   run('npm', [
     'install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarballPath,
-    '@types/node',
+    ...consumerTypes,
   ], consumerRoot);
 
   run(process.execPath, ['--input-type=commonjs', '--eval', requireCheck], consumerRoot);
